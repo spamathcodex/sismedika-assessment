@@ -3,47 +3,79 @@
 namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
-use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Laravel\Sanctum\HasApiTokens;
+use Spatie\Permission\Traits\HasRoles;
 
 class User extends Authenticatable
 {
-    /** @use HasFactory<UserFactory> */
-    use HasFactory, Notifiable;
+    use HasApiTokens, HasFactory, Notifiable, HasRoles;
 
-    /**
-     * The attributes that are mass assignable.
-     *
-     * @var list<string>
-     */
     protected $fillable = [
         'name',
         'email',
         'password',
+        'phone',
+        'is_active',
+        'last_login_at',
+        'last_login_ip',
+        'email_verified_at',
     ];
 
-    /**
-     * The attributes that should be hidden for serialization.
-     *
-     * @var list<string>
-     */
     protected $hidden = [
         'password',
         'remember_token',
     ];
 
+    protected $casts = [
+        'email_verified_at' => 'datetime',
+        'password' => 'hashed',
+        'is_active' => 'boolean',
+        'last_login_at' => 'datetime',
+    ];
+
     /**
-     * Get the attributes that should be cast.
-     *
-     * @return array<string, string>
+     * Relasi ke orders yang dibuat oleh user (sebagai pelayan)
      */
-    protected function casts(): array
+    public function orders()
     {
-        return [
-            'email_verified_at' => 'datetime',
-            'password' => 'hashed',
-        ];
+        return $this->hasMany(Order::class, 'user_id');
+    }
+
+    /**
+     * Relasi ke orders yang diproses oleh user (sebagai kasir)
+     */
+    public function processedOrders()
+    {
+        return $this->hasMany(Order::class, 'cashier_id');
+    }
+
+    /**
+     * Scope untuk user yang aktif
+     */
+    public function scopeActive($query)
+    {
+        return $query->where('is_active', true);
+    }
+
+    /**
+     * Cek apakah user memiliki role tertentu
+     */
+    public function hasRole($role)
+    {
+        return $this->roles->contains('name', $role);
+    }
+
+    /**
+     * Update last login info
+     */
+    public function updateLoginInfo($ip)
+    {
+        $this->update([
+            'last_login_at' => now(),
+            'last_login_ip' => $ip,
+        ]);
     }
 }
